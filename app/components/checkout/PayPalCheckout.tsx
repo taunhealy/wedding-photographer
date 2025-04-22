@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 interface PayPalCheckoutProps {
   bookingData: {
-    tourId: string;
+    packageId: string;
     scheduleId: string;
     participants: number;
     totalPrice: number;
@@ -35,7 +35,7 @@ export default function PayPalCheckout({
     try {
       // Log what we're sending
       console.log("Sending booking data:", {
-        tourId: bookingData.tourId,
+        tourId: bookingData.packageId,
         scheduleId: bookingData.scheduleId,
         participants: bookingData.participants,
         totalPrice: bookingData.totalPrice,
@@ -53,7 +53,7 @@ export default function PayPalCheckout({
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify({
-          tourId: bookingData.tourId,
+          tourId: bookingData.packageId,
           scheduleId: bookingData.scheduleId,
           participants: Number(bookingData.participants),
           totalPrice: parseFloat(bookingData.totalPrice.toString()),

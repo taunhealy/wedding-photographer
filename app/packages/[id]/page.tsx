@@ -6,38 +6,45 @@ import { Badge } from "@/app/components/ui/badge";
 import {
   CalendarDays,
   MapPin,
-  Users,
+  Camera,
   Clock,
   Banknote,
-  ShieldCheck,
-  Compass,
+  Image as ImageIcon,
 } from "lucide-react";
 import Image from "next/image";
 
-export default async function TourPage({ params }: { params: { id: string } }) {
+export default async function PackagePage({
+  params,
+}: {
+  params: { id: string };
+}) {
   if (!params.id) {
     return notFound();
   }
 
-  const tour = await prisma.tour.findUnique({
-    where: { id: params.id },
+  const package_ = await prisma.package.findUnique({
+    where: {
+      id: params.id,
+      deleted: false,
+    },
     include: {
-      tourType: true,
-      marineLife: true,
-      startLocation: true,
-      endLocation: true,
       category: true,
-      guide: true,
-      equipment: {
-        include: {
-          equipment: true,
+      tags: true,
+      schedules: {
+        where: {
+          date: {
+            gte: new Date(),
+          },
         },
+        orderBy: {
+          date: "asc",
+        },
+        take: 1,
       },
-      schedules: true,
     },
   });
 
-  if (!tour) {
+  if (!package_) {
     return notFound();
   }
 
@@ -45,8 +52,8 @@ export default async function TourPage({ params }: { params: { id: string } }) {
     <div className="min-h-screen bg-gray-50">
       <div className="relative h-[400px] w-full">
         <Image
-          src={tour.images[0] || "/images/placeholder-tour.jpg"}
-          alt={tour.name}
+          src={package_.images[0] || "/images/placeholder-package.jpg"}
+          alt={package_.name}
           fill
           className="object-cover"
           priority
@@ -59,41 +66,43 @@ export default async function TourPage({ params }: { params: { id: string } }) {
           <div className="flex flex-col lg:flex-row justify-between gap-8">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-4">
-                <Badge variant="outline" className="capitalize">
-                  {tour.difficulty.toLowerCase()}
-                </Badge>
+                {package_.tags.map((tag) => (
+                  <Badge key={tag.id} variant="outline" className="capitalize">
+                    {tag.name}
+                  </Badge>
+                ))}
                 <Badge className="bg-blue-100 text-blue-800">
-                  {tour.tourType.name}
+                  {package_.category?.name}
                 </Badge>
               </div>
 
               <h1 className="text-3xl font-bold mb-4 font-primary">
-                {tour.name}
+                {package_.name}
               </h1>
               <p className="text-gray-600 mb-6 font-primary">
-                {tour.description}
+                {package_.description}
               </p>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
                 <div className="flex items-center gap-2">
                   <Clock className="h-5 w-5 text-blue-600" />
-                  <span className="font-primary">{tour.duration} hours</span>
+                  <span className="font-primary">
+                    {package_.duration} hours
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-blue-600" />
-                  <span className="font-primary">
-                    Max {tour.maxParticipants} people
-                  </span>
+                  <Camera className="h-5 w-5 text-blue-600" />
+                  <span className="font-primary">Professional Photography</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Banknote className="h-5 w-5 text-blue-600" />
                   <span className="font-primary">
-                    ${tour.basePrice.toString()}
+                    ${package_.price.toString()}
                   </span>
                 </div>
               </div>
 
-              <Link href={`/tours/${tour.id}/book`}>
+              <Link href={`/packages/${package_.id}/book`}>
                 <Button size="lg" className="w-full md:w-auto font-primary">
                   Book Now
                 </Button>
@@ -101,16 +110,18 @@ export default async function TourPage({ params }: { params: { id: string } }) {
             </div>
 
             <div className="lg:w-1/3 bg-gray-50 rounded-lg p-6">
-              <h3 className="font-semibold mb-4 font-primary">Tour Details</h3>
+              <h3 className="font-semibold mb-4 font-primary">
+                Package Details
+              </h3>
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <MapPin className="h-5 w-5 text-blue-600" />
+                  <ImageIcon className="h-5 w-5 text-blue-600" />
                   <div>
                     <p className="text-sm text-gray-600 font-primary">
-                      Start Location
+                      Deliverables
                     </p>
                     <p className="font-medium font-primary">
-                      {tour.startLocation?.name}
+                      High-resolution digital images
                     </p>
                   </div>
                 </div>
@@ -121,11 +132,11 @@ export default async function TourPage({ params }: { params: { id: string } }) {
                       Next Available
                     </p>
                     <p className="font-medium font-primary">
-                      {tour.schedules[0]?.startDate
+                      {package_.schedules[0]?.date
                         ? new Date(
-                            tour.schedules[0].startDate
+                            package_.schedules[0].date
                           ).toLocaleDateString()
-                        : "Contact for dates"}
+                        : "Contact for availability"}
                     </p>
                   </div>
                 </div>
@@ -136,63 +147,34 @@ export default async function TourPage({ params }: { params: { id: string } }) {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
           <div>
-            <h3 className="font-semibold mb-2">Marine Life</h3>
-            <div className="flex flex-wrap gap-2">
-              {tour.marineLife.map((species) => (
-                <span
-                  key={species.id}
-                  className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
-                >
-                  {species.name}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-2">Equipment</h3>
-            <ul className="list-disc list-inside">
-              {tour.equipment.map((item) => (
-                <li key={item.equipment.id}>{item.equipment.name}</li>
-              ))}
-            </ul>
-          </div>
-
-          {tour.conservationInfo && (
-            <div>
-              <h3 className="font-semibold mb-2">Conservation Information</h3>
-              <p className="text-gray-600">{tour.conservationInfo}</p>
-            </div>
-          )}
-
-          <div>
-            <h3 className="font-semibold mb-2">Safety Briefing</h3>
-            <p className="text-gray-600">{tour.safetyBriefing}</p>
-          </div>
-
-          <div>
             <h3 className="font-semibold mb-2">Highlights</h3>
             <ul className="list-disc list-inside">
-              {tour.highlights.map((highlight, index) => (
-                <li key={index}>{highlight}</li>
+              {package_.highlights.map((highlight, index) => (
+                <li key={index} className="text-gray-600">
+                  {highlight}
+                </li>
               ))}
             </ul>
           </div>
 
           <div>
-            <h3 className="font-semibold mb-2">Inclusions</h3>
+            <h3 className="font-semibold mb-2">What's Included</h3>
             <ul className="list-disc list-inside">
-              {tour.inclusions.map((inclusion, index) => (
-                <li key={index}>{inclusion}</li>
+              {package_.inclusions.map((inclusion, index) => (
+                <li key={index} className="text-gray-600">
+                  {inclusion}
+                </li>
               ))}
             </ul>
           </div>
 
           <div>
-            <h3 className="font-semibold mb-2">Exclusions</h3>
+            <h3 className="font-semibold mb-2">What's Not Included</h3>
             <ul className="list-disc list-inside">
-              {tour.exclusions.map((exclusion, index) => (
-                <li key={index}>{exclusion}</li>
+              {package_.exclusions.map((exclusion, index) => (
+                <li key={index} className="text-gray-600">
+                  {exclusion}
+                </li>
               ))}
             </ul>
           </div>

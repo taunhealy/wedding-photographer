@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import BookingForm from "@/app/components/tours/BookingForm";
+import { format } from "date-fns";
 import {
   Card,
   CardContent,
@@ -8,20 +8,28 @@ import {
   CardTitle,
 } from "@/app/components/ui/card";
 import { Separator } from "@/app/components/ui/separator";
+import BookingForm from "@/app/components/packages/BookingForm";
 import PayPalCheckout from "@/app/components/checkout/PayPalCheckout";
-import { format } from "date-fns";
+import { PackageSchedule } from "@prisma/client";
+import { JsonValue } from "type-fest";
 
-function formatScheduleTime(startDate: Date, endDate: Date, duration: number) {
-  const isSameDay = startDate.toDateString() === endDate.toDateString();
-
-  if (isSameDay) {
-    return `${format(startDate, "h:mm a")} - ${format(endDate, "h:mm a")}`;
-  }
-
-  return `${format(startDate, "MMM d")} - ${format(endDate, "MMM d, yyyy")}`;
+// Create a modified type with string dates
+interface FormattedSchedule {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  price: number;
+  available: boolean;
+  status: string;
+  packageId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  metadata: JsonValue | null;
+  notes: string | null;
 }
 
-export default async function BookTourPage({
+export default async function BookPackagePage({
   params,
 }: {
   params: { id: string };
@@ -30,36 +38,70 @@ export default async function BookTourPage({
     return notFound();
   }
 
-  const tour = await prisma.tour.findUnique({
-    where: { id: params.id },
+  const package_ = await prisma.package.findUnique({
+    where: {
+      id: params.id,
+      deleted: false,
+      published: true,
+    },
     include: {
+      category: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
       schedules: {
         where: {
-          startDate: {
+          date: {
             gte: new Date(),
           },
           status: "OPEN",
+          available: true,
         },
         orderBy: {
-          startDate: "asc",
+          date: "asc",
+        },
+        include: {
+          bookings: {
+            where: {
+              status: {
+                in: ["PENDING", "CONFIRMED"],
+              },
+            },
+          },
         },
       },
-      startLocation: true,
-      tourType: true,
     },
   });
 
-  if (!tour) {
+  if (!package_) {
     return notFound();
   }
+
+  const availableSchedules = package_.schedules.filter(
+    (schedule) => schedule.bookings.length === 0
+  );
+
+  const formattedSchedules: FormattedSchedule[] = availableSchedules.map(
+    (schedule) => ({
+      ...schedule,
+      date: schedule.date.toISOString(),
+      startTime: schedule.startTime.toISOString(),
+      endTime: schedule.endTime.toISOString(),
+      price: Number(schedule.price),
+    })
+  );
 
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="max-w-3xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 font-primary">{tour.name}</h1>
+          <h1 className="text-3xl font-bold mb-2 font-primary">
+            {package_.name}
+          </h1>
           <p className="text-gray-600 font-primary">
-            Complete your booking for this amazing experience
+            Complete your photography package booking
           </p>
         </div>
 
@@ -70,13 +112,9 @@ export default async function BookTourPage({
             </CardHeader>
             <CardContent>
               <BookingForm
-                tourId={tour.id}
-                schedules={tour.schedules.map((schedule) => ({
-                  ...schedule,
-                  startDate: schedule.startDate.toISOString(),
-                  endDate: schedule.endDate.toISOString(),
-                }))}
-                basePrice={tour.basePrice}
+                packageId={package_.id}
+                schedules={formattedSchedules}
+                basePrice={Number(package_.price)}
                 checkoutComponent={PayPalCheckout}
               />
             </CardContent>
@@ -90,34 +128,33 @@ export default async function BookTourPage({
             </CardHeader>
             <CardContent className="space-y-4 font-primary">
               <div>
+                <h3 className="font-semibold mb-2">Booking Policy</h3>
+                <p className="text-gray-600">
+                  A 50% deposit is required to secure your booking date. The
+                  remaining balance is due 2 weeks before the event.
+                </p>
+              </div>
+
+              <Separator />
+
+              <div>
                 <h3 className="font-semibold mb-2">Cancellation Policy</h3>
                 <p className="text-gray-600">
-                  Free cancellation up to 24 hours before the tour.
-                  Cancellations within 24 hours of the tour start time may be
-                  subject to fees.
+                  Deposits are non-refundable. Cancellations made within 30 days
+                  of the event are subject to the full payment amount.
                 </p>
               </div>
 
               <Separator />
 
               <div>
-                <h3 className="font-semibold mb-2">What to Bring</h3>
+                <h3 className="font-semibold mb-2">What to Prepare</h3>
                 <ul className="list-disc list-inside text-gray-600">
-                  <li>Comfortable clothing appropriate for weather</li>
-                  <li>Sunscreen and hat</li>
-                  <li>Camera (optional)</li>
-                  <li>Valid ID</li>
+                  <li>Shot list or specific photo requests</li>
+                  <li>Timeline of the event</li>
+                  <li>Venue details and contact information</li>
+                  <li>Any special considerations or requirements</li>
                 </ul>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h3 className="font-semibold mb-2">Meeting Point</h3>
-                <p className="text-gray-600">
-                  {tour.startLocation?.name ||
-                    "Details will be provided after booking"}
-                </p>
               </div>
             </CardContent>
           </Card>

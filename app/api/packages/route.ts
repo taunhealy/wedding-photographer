@@ -39,6 +39,13 @@ export async function POST(request: Request) {
 
     const data = await request.json();
 
+    if (!data.categoryId) {
+      return NextResponse.json(
+        { error: "Category ID is required" },
+        { status: 400 }
+      );
+    }
+
     const package_ = await prisma.package.create({
       data: {
         name: data.name,
@@ -47,11 +54,7 @@ export async function POST(request: Request) {
         price: data.price,
         published: data.published || false,
         images: data.images || [],
-        category: data.categoryId
-          ? {
-              connect: { id: data.categoryId },
-            }
-          : undefined,
+        categoryId: data.categoryId,
         tags: data.tags?.length
           ? {
               connect: data.tags.map((id: string) => ({ id })),

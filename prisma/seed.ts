@@ -106,114 +106,175 @@ async function seedWorkItems() {
 }
 
 async function seedPackages() {
-  const category = await prisma.packageCategory.create({
-    data: {
+  console.log("Starting to seed packages...");
+
+  // Create package categories
+  console.log("Creating package categories...");
+  const weddingCategory = await prisma.packageCategory.upsert({
+    where: { name: "Wedding Photography" },
+    update: {},
+    create: {
       name: "Wedding Photography",
-      description: "Our wedding photography packages",
+      description: "Full day wedding photography coverage",
+      order: 1,
     },
   });
+  console.log("Created wedding category:", weddingCategory.id);
+
+  const elopementCategory = await prisma.packageCategory.upsert({
+    where: { name: "Elopement Photography" },
+    update: {},
+    create: {
+      name: "Elopement Photography",
+      description: "Intimate elopement photography coverage",
+      order: 2,
+    },
+  });
+  console.log("Created elopement category:", elopementCategory.id);
 
   // Create packages
-  await prisma.package.create({
+  console.log("Creating packages...");
+  const fullDayWedding = await prisma.package.create({
     data: {
-      name: "Elopement Adventure",
+      name: "Full Day Wedding",
       description:
-        "Perfect for adventurous couples seeking an intimate ceremony",
-      duration: 6,
-      price: 2500,
-      images: ["/package-1.jpg"],
-      highlights: [
-        "6 hours of coverage",
-        "2 locations",
-        "150+ edited photos",
-        "Private online gallery",
-      ],
-      inclusions: [
-        "Pre-wedding consultation",
-        "Location scouting",
-        "Travel within Iceland",
-        "High-resolution digital files",
-      ],
-      exclusions: ["Additional hours", "Printed albums", "Second photographer"],
-      published: true,
-      categoryId: category.id,
-    },
-  });
-
-  await prisma.package.create({
-    data: {
-      name: "Intimate Wedding",
-      description: "Comprehensive coverage for small weddings up to 30 guests",
-      duration: 8,
-      price: 3500,
-      images: ["/package-2.jpg"],
-      highlights: [
-        "8 hours of coverage",
-        "Multiple locations",
-        "300+ edited photos",
-        "Private online gallery",
-      ],
-      inclusions: [
-        "Pre-wedding consultation",
-        "Location scouting",
-        "Travel within Iceland",
-        "High-resolution digital files",
-        "Second photographer",
-      ],
-      exclusions: ["Additional hours", "Printed albums"],
-      published: true,
-      categoryId: category.id,
-    },
-  });
-
-  await prisma.package.create({
-    data: {
-      name: "Ultimate Collection",
-      description: "Our most comprehensive wedding package",
+        "Complete wedding day coverage from preparation to reception",
       duration: 12,
-      price: 5000,
-      images: ["/package-3.jpg"],
+      price: 3500,
+      images: ["/wedding-1.jpg", "/wedding-2.jpg"],
       highlights: [
         "12 hours of coverage",
-        "Unlimited locations",
-        "500+ edited photos",
-        "Private online gallery",
-        "Premium photo album",
+        "Two photographers",
+        "600+ edited photos",
+        "Online gallery",
+        "Engagement session included",
       ],
       inclusions: [
         "Pre-wedding consultation",
-        "Location scouting",
-        "Travel within Iceland",
         "High-resolution digital files",
+        "Private online gallery",
+        "Travel within Iceland",
         "Second photographer",
         "Engagement session",
-        "Premium leather album",
       ],
-      exclusions: ["Additional days"],
+      exclusions: [
+        "Physical albums (available as add-on)",
+        "Additional hours beyond 12",
+      ],
       published: true,
-      categoryId: category.id,
+      categoryId: weddingCategory.id,
     },
   });
+  console.log("Created full day wedding package:", fullDayWedding.id);
+
+  const intimateElopement = await prisma.package.create({
+    data: {
+      name: "Intimate Elopement",
+      description: "Perfect for intimate ceremonies and adventurous couples",
+      duration: 6,
+      price: 2000,
+      images: ["/elopement-1.jpg", "/elopement-2.jpg"],
+      highlights: [
+        "6 hours of coverage",
+        "One photographer",
+        "300+ edited photos",
+        "Online gallery",
+        "Location scouting",
+      ],
+      inclusions: [
+        "Pre-elopement consultation",
+        "High-resolution digital files",
+        "Private online gallery",
+        "Travel within Iceland",
+        "Location recommendations",
+      ],
+      exclusions: [
+        "Physical albums (available as add-on)",
+        "Additional hours beyond 6",
+      ],
+      published: true,
+      categoryId: elopementCategory.id,
+    },
+  });
+  console.log("Created intimate elopement package:", intimateElopement.id);
+
+  // Create some schedules
+  console.log("Creating schedules...");
+  const today = new Date();
+
+  // Create schedules for the next 30 days
+  for (let i = 1; i <= 5; i++) {
+    const scheduleDate = new Date(today);
+    scheduleDate.setDate(today.getDate() + i * 3); // Every 3 days
+
+    const startTime = new Date(scheduleDate);
+    startTime.setHours(10, 0, 0, 0);
+
+    const endTime = new Date(scheduleDate);
+    endTime.setHours(16, 0, 0, 0);
+
+    await prisma.packageSchedule.create({
+      data: {
+        packageId: intimateElopement.id,
+        date: scheduleDate,
+        startTime,
+        endTime,
+        price: 2000,
+        available: true,
+        status: "OPEN",
+      },
+    });
+    console.log(`Created schedule for ${scheduleDate.toDateString()}`);
+  }
+
+  console.log("Seeding completed successfully!");
 }
 
 async function main() {
-  // Clear existing data
-  await prisma.workItem.deleteMany();
-  await prisma.workCategory.deleteMany();
-  await prisma.workTag.deleteMany();
+  try {
+    console.log("=== STARTING DATABASE SEED ===");
 
-  // Seed new data
-  await seedWorkItems();
-  await seedPackages();
+    // Clear existing data
+    console.log("1. Clearing existing data...");
+    console.log("1.1 Deleting bookings...");
+    const deletedBookings = await prisma.booking.deleteMany();
+    console.log(`1.1 Deleted ${deletedBookings.count} bookings`);
+
+    console.log("1.2 Deleting package schedules...");
+    const deletedSchedules = await prisma.packageSchedule.deleteMany();
+    console.log(`1.2 Deleted ${deletedSchedules.count} schedules`);
+
+    console.log("1.3 Deleting packages...");
+    const deletedPackages = await prisma.package.deleteMany();
+    console.log(`1.3 Deleted ${deletedPackages.count} packages`);
+
+    console.log("1.4 Deleting package categories...");
+    const deletedCategories = await prisma.packageCategory.deleteMany();
+    console.log(`1.4 Deleted ${deletedCategories.count} categories`);
+
+    console.log("✅ All existing data cleared successfully");
+
+    // Seed new data
+    console.log("2. Starting to seed new data...");
+    await seedWorkItems();
+    await seedPackages();
+
+    console.log("✅ DATABASE SEEDING COMPLETED SUCCESSFULLY");
+  } catch (error) {
+    console.error("❌ ERROR DURING SEEDING:", error);
+    throw error;
+  }
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error("Fatal error during seeding:", e);
     process.exit(1);
   })
   .finally(async () => {
+    console.log("Disconnecting from database...");
     await prisma.$disconnect();
+    console.log("Disconnected.");
   });
 
 export {};

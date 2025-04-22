@@ -53,19 +53,19 @@ model Package {
   inclusions      String[]
   exclusions      String[]
   published       Boolean   @default(false)
+  categoryId      String
+  category        PackageCategory @relation(fields: [categoryId], references: [id])
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   schedules       PackageSchedule[]
   deleted         Boolean   @default(false)
   deletedAt       DateTime?
   
-  categoryId      String?
-  category        PackageCategory? @relation(fields: [categoryId], references: [id])
   tags            Tag[]         @relation("PackageTags")
-  
-  // Custom fields can be stored in metadata
   metadata        Json?     // Store additional package-specific data
   paypalOrders    PaypalOrder[]
+
+  @@index([categoryId])
 }
 
 // Available package dates
@@ -241,13 +241,6 @@ model WaitlistEntry {
   status            String    @default("WAITING") // WAITING, NOTIFIED, BOOKED
 }
 
-model PackageCategory {
-  id          String    @id @default(cuid())
-  name        String    @unique // Wedding, Engagement, Portrait, etc.
-  description String?
-  packages    Package[]
-}
-
 model Tag {
   id          String    @id @default(cuid())
   name        String    @unique
@@ -303,6 +296,7 @@ model WorkItem {
   metadata    Json?     // Additional metadata (camera settings, etc.)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  products    Product[] // Add this relation
 
   @@index([categoryId])
   @@index([published])
@@ -347,4 +341,79 @@ model Availability {
   updatedAt   DateTime @updatedAt
 
   @@unique([date, startTime, endTime])
+}
+
+// New e-commerce related models
+model Product {
+  id              String    @id @default(cuid())
+  name            String
+  description     String    @db.Text
+  basePrice       Decimal   @db.Money     // Your wholesale/base price
+  platformFee     Decimal   @db.Money     // Your commission
+  photographerPrice Decimal @db.Money     // Price set by photographer
+  finalPrice      Decimal   @db.Money     // Final customer price
+  type            ProductType
+  status          ProductStatus @default(ACTIVE)
+  workItem        WorkItem  @relation(fields: [workItemId], references: [id])
+  workItemId      String
+  variants        ProductVariant[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([workItemId])
+  @@index([type])
+  @@index([status])
+}
+
+model ProductVariant {
+  id          String    @id @default(cuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name        String    // e.g., "8x10 Framed", "12x16 Canvas"
+  sku         String    @unique
+  price       Decimal   @db.Money
+  dimensions  String?   // e.g., "8x10", "12x16"
+  material    String?   // e.g., "Premium Photo Paper", "Canvas"
+  inStock     Boolean   @default(true)
+  metadata    Json?     // Additional variant-specific details
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([productId])
+}
+
+enum ProductType {
+  PHOTO_PRINT
+  PHOTO_ALBUM
+  FRAME
+  CANVAS
+  DIGITAL_DOWNLOAD
+}
+
+enum ProductStatus {
+  ACTIVE
+  DRAFT
+  DISCONTINUED
+}
+
+model PlatformSettings {
+  id              String    @id @default(cuid())
+  commissionRate  Decimal   @db.Decimal(5,2) // Platform commission percentage
+  minMarkup       Decimal   @db.Decimal(5,2) // Minimum markup allowed
+  maxMarkup       Decimal   @db.Decimal(5,2) // Maximum markup allowed
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model PackageCategory {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?   @db.Text
+  packages    Package[]
+  order       Int       @default(0)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([order])
 }

@@ -4,10 +4,14 @@ import { Package, PackageSchedule, PackageCategory, Tag } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/app/components/ui/button";
 
-interface PackageWithRelations extends Package {
-  schedules: PackageSchedule[];
+interface PackageWithRelations extends Omit<Package, "price"> {
+  schedules: (Omit<PackageSchedule, "price" | "date"> & {
+    price: string;
+    date: string;
+  })[];
   category: PackageCategory | null;
   tags: Tag[];
+  price: string;
 }
 
 interface PackageListProps {
@@ -16,7 +20,7 @@ interface PackageListProps {
   onDelete?: (id: string) => void;
   isDeleting?: boolean;
   createPath?: string;
-  onEdit?: (package: PackageWithRelations) => void;
+  onEdit?: (pkg: PackageWithRelations) => void;
 }
 
 export default function PackageList({
@@ -29,6 +33,22 @@ export default function PackageList({
 }: PackageListProps) {
   const router = useRouter();
 
+  const formatPrice = (price: string) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+    }).format(parseFloat(price));
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
   const handleEdit = (packageId: string) => {
     const path = editPath.replace("[packageId]", packageId);
     router.push(path);
@@ -36,6 +56,11 @@ export default function PackageList({
 
   const handleCreateNew = () => {
     router.push(createPath);
+  };
+
+  const handlePackageClick = (packageId: string, e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button")) return;
+    router.push(`/packages/${packageId}`);
   };
 
   if (!packages || packages.length === 0) {
@@ -72,7 +97,11 @@ export default function PackageList({
       </div>
 
       {packages.map((pkg) => (
-        <div key={pkg.id} className="card p-6">
+        <div
+          key={pkg.id}
+          className="card p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={(e) => handlePackageClick(pkg.id, e)}
+        >
           <div className="flex justify-between items-start">
             <div>
               <h3 className="text-h4 mb-1">{pkg.name}</h3>
@@ -102,13 +131,19 @@ export default function PackageList({
             </div>
             <div className="flex space-x-2">
               <button
-                onClick={() => handleEdit(pkg.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit(pkg.id);
+                }}
                 className="btn btn-outline py-1 px-3"
               >
                 Edit
               </button>
               <button
-                onClick={() => onDelete(pkg.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(pkg.id);
+                }}
                 className="btn py-1 px-3 bg-red-100 text-red-600 hover:bg-red-200"
                 disabled={isDeleting}
               >
@@ -120,7 +155,7 @@ export default function PackageList({
           <div className="mt-4 text-sm text-gray-500 font-primary">
             <div className="flex justify-between">
               <span>{pkg.duration} hours</span>
-              <span>${Number(pkg.price).toFixed(2)}</span>
+              <span>{formatPrice(pkg.price)}</span>
             </div>
             <div className="mt-2">
               <span>Schedules: {pkg.schedules?.length || 0}</span>
