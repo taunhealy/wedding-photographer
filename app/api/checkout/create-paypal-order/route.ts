@@ -26,6 +26,8 @@ async function getPayPalAccessToken() {
   });
 
   if (!response.ok) {
+    const errorData = await response.json();
+    console.error("PayPal token error:", errorData);
     throw new Error("Failed to get PayPal access token");
   }
 
@@ -36,8 +38,8 @@ async function getPayPalAccessToken() {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    const { packageId, scheduleId, amount, currency, contactInfo } =
-      await request.json();
+    const body = await request.json();
+    const { packageId, scheduleId, amount, currency, contactInfo } = body;
 
     // Validate the package and schedule exist
     const packageSchedule = await prisma.packageSchedule.findFirst({
@@ -62,6 +64,14 @@ export async function POST(request: NextRequest) {
     // Get PayPal access token
     const accessToken = await getPayPalAccessToken();
 
+    // Store user ID in custom_id if available
+    const customData = {
+      scheduleId,
+      packageId,
+      contactInfo,
+      userId: session?.user?.id || null,
+    };
+
     // Create PayPal order
     const response = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders`, {
       method: "POST",
@@ -74,21 +84,30 @@ export async function POST(request: NextRequest) {
         purchase_units: [
           {
             amount: {
-              currency_code: currency,
+              currency_code: currency || "USD",
               value: amount.toString(),
             },
             description: `Booking for ${packageSchedule.package.name}`,
-            custom_id: JSON.stringify({
-              scheduleId,
-              contactInfo,
-            }),
+            custom_id: JSON.stringify(customData),
           },
         ],
+        application_context: {
+          brand_name: "Off The Grid Weddings",
+          landing_page: "NO_PREFERENCE",
+          user_action: "PAY_NOW",
+          return_url: `${process.env.NEXTAUTH_URL}/api/checkout/capture-payment`,
+          cancel_url: `${process.env.NEXTAUTH_URL}/checkout/cancel`,
+        },
       }),
     });
 
     if (!response.ok) {
-      throw new Error("Failed to create PayPal order");
+      const errorData = await response.text();
+      console.error("PayPal order creation error:", errorData);
+      return NextResponse.json(
+        { error: "Failed to create PayPal order" },
+        { status: 500 }
+      );
     }
 
     const order = await response.json();
@@ -100,16 +119,34 @@ export async function POST(request: NextRequest) {
         status: "CREATED",
         packageId,
         scheduleId,
-        amount,
+        amount: parseFloat(amount),
         contactInfo,
       },
     });
 
+    // If user is logged in, create an audit log
+    if (session?.user?.id) {
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "CREATE",
+          entityType: "PAYPAL_ORDER",
+          entityId: order.id,
+          details: {
+            packageId,
+            scheduleId,
+            amount,
+            status: "CREATED",
+          },
+        },
+      });
+    }
+
     return NextResponse.json(order);
   } catch (error) {
-    console.error("Error creating order:", error);
+    console.error("Error creating PayPal order:", error);
     return NextResponse.json(
-      { error: "Failed to create order" },
+      { error: "Failed to create order", details: (error as Error).message },
       { status: 500 }
     );
   }

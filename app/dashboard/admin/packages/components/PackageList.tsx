@@ -1,17 +1,32 @@
 "use client";
 
-import { Package, PackageSchedule, PackageCategory, Tag } from "@prisma/client";
+import {
+  Package,
+  PackageSchedule,
+  PackageCategory,
+  Tag,
+  PaypalOrder,
+} from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/app/components/ui/button";
+import { JsonValue } from "@prisma/client/runtime/library";
 
 interface PackageWithRelations extends Omit<Package, "price"> {
+  price: string;
   schedules: (Omit<PackageSchedule, "price" | "date"> & {
     price: string;
     date: string;
   })[];
   category: PackageCategory | null;
   tags: Tag[];
-  price: string;
+  images: string[];
+  highlights: string[];
+  inclusions: string[];
+  exclusions: string[];
+  metadata: JsonValue | null;
+  deleted: boolean;
+  deletedAt: Date | null;
+  paypalOrders: PaypalOrder[];
 }
 
 interface PackageListProps {
@@ -25,7 +40,7 @@ interface PackageListProps {
 
 export default function PackageList({
   packages,
-  editPath = "/dashboard/admin/packages/edit/[packageId]",
+  editPath = "/dashboard/admin/packages/[packageId]/edit",
   onDelete = () => {},
   isDeleting = false,
   createPath = "/dashboard/admin/packages/new",

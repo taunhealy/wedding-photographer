@@ -8,6 +8,10 @@ import {
 } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/app/components/ui/button";
+import { signOut } from "next-auth/react";
 
 function SignInSkeleton() {
   return (
@@ -39,6 +43,8 @@ interface AuthError {
 }
 
 function SignInContent() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
   const callbackUrl = searchParams.get("callbackUrl") || "/";
@@ -79,6 +85,39 @@ function SignInContent() {
   }, []);
 
   const errorDetails = error ? authErrors[error] || authErrors.Default : null;
+
+  if (status === "authenticated") {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center bg-[var(--color-bg-secondary)]">
+        <div className="max-w-md w-full p-8 bg-[var(--color-bg-primary)] rounded-lg shadow-sm border border-gray-200">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-primary font-semibold text-gray-900 mb-2">
+              Welcome back, {session.user.name}
+            </h1>
+            <p className="text-gray-600 font-primary mb-6">
+              You're already signed in
+            </p>
+            <div className="space-y-4">
+              <Button
+                onClick={() => router.push("/dashboard")}
+                className="w-full"
+                variant="default"
+              >
+                Go to Dashboard
+              </Button>
+              <Button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="w-full"
+                variant="outline"
+              >
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) return <SignInSkeleton />;
 

@@ -1,13 +1,24 @@
 import { Package as PrismaPackage, Prisma } from "@prisma/client";
 
-// Use Prisma's utility type for packages with relations
-export type PackageWithRelations = Prisma.PackageGetPayload<{
+// Original DB type
+export type PackageWithRelationsDB = Prisma.PackageGetPayload<{
   include: {
     category: true;
     schedules: true;
     tags: true;
   };
 }>;
+
+// Serialized type for client components
+export interface PackageWithRelations
+  extends Omit<PackageWithRelationsDB, "price" | "schedules"> {
+  price: number;
+  schedules: Array<
+    Omit<PackageWithRelationsDB["schedules"][number], "price"> & {
+      price: number;
+    }
+  >;
+}
 
 // UI-specific helper type that extends the Prisma type
 export interface PackageListItem extends PrismaPackage {
@@ -20,7 +31,7 @@ export interface Package {
   name: string;
   description: string;
   duration: number;
-  price: Prisma.Decimal;
+  price: number | Prisma.Decimal;
   images: string[];
   highlights: string[];
   inclusions: string[];

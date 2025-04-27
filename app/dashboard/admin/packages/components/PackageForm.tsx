@@ -29,6 +29,7 @@ import {
 } from "@/app/components/ui/select";
 import { toast } from "sonner";
 import { MultiSelect } from "@/app/components/ui/multi-select";
+import { Plus, X } from "lucide-react";
 
 // 1. Schema for validation
 const packageFormSchema = z.object({
@@ -52,9 +53,13 @@ type PackageFormValues = z.infer<typeof packageFormSchema>;
 
 interface PackageFormProps {
   initialData?: PackageWithRelations | null;
+  allTags: { id: string; name: string }[];
 }
 
-export default function PackageForm({ initialData }: PackageFormProps) {
+export default function PackageForm({
+  initialData,
+  allTags,
+}: PackageFormProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
@@ -62,6 +67,7 @@ export default function PackageForm({ initialData }: PackageFormProps) {
   const [highlightInput, setHighlightInput] = useState("");
   const [inclusionInput, setInclusionInput] = useState("");
   const [exclusionInput, setExclusionInput] = useState("");
+  const [tagInput, setTagInput] = useState("");
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
@@ -103,7 +109,7 @@ export default function PackageForm({ initialData }: PackageFormProps) {
       name: initialData?.name || "",
       description: initialData?.description || "",
       duration: initialData?.duration || 1,
-      price: initialData?.price ? Number(initialData.price.toString()) : 0,
+      price: initialData?.price ? parseFloat(initialData.price.toString()) : 0,
       images: initialData?.images || [],
       published: initialData?.published || false,
       categoryId: initialData?.categoryId || null,
@@ -164,6 +170,62 @@ export default function PackageForm({ initialData }: PackageFormProps) {
     form.setValue(
       "exclusions",
       exclusions.filter((_, i) => i !== index)
+    );
+  };
+
+  // Add tag
+  const addTag = async () => {
+    if (tagInput.trim()) {
+      // Check if tag already exists in the options
+      const existingTag = tagOptions.find(
+        (tag) => tag.label.toLowerCase() === tagInput.trim().toLowerCase()
+      );
+
+      if (existingTag) {
+        // If tag exists, add it to selected tags if not already selected
+        if (!form.getValues("tags").includes(existingTag.value)) {
+          form.setValue("tags", [...form.getValues("tags"), existingTag.value]);
+        }
+      } else {
+        // Create a new tag
+        try {
+          const response = await fetch("/api/tags", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ name: tagInput.trim() }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || "Failed to create tag");
+          }
+
+          const newTag = await response.json();
+
+          // Add the new tag to the form values
+          form.setValue("tags", [...form.getValues("tags"), newTag.id]);
+
+          // Refresh the tags list
+          queryClient.invalidateQueries({ queryKey: ["tags"] });
+
+          toast.success(`Tag "${newTag.name}" created successfully`);
+        } catch (error: any) {
+          toast.error(
+            `Error creating tag: ${error?.message || "Unknown error"}`
+          );
+        }
+      }
+      setTagInput("");
+    }
+  };
+
+  // Remove tag
+  const removeTag = (tagId: string) => {
+    form.setValue(
+      "tags",
+      form.getValues("tags").filter((id) => id !== tagId)
     );
   };
 
@@ -298,7 +360,7 @@ export default function PackageForm({ initialData }: PackageFormProps) {
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="default">None</SelectItem>
                   {categories.map((category: { id: string; name: string }) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
@@ -317,13 +379,51 @@ export default function PackageForm({ initialData }: PackageFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tags</FormLabel>
-              <MultiSelect
-                options={tagOptions}
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-                placeholder="Select tags..."
-              />
-              <FormMessage />
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    placeholder="Enter a tag name"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={addTag}
+                    size="icon"
+                    variant="outline"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <MultiSelect
+                  options={tagOptions}
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  placeholder="Select tags..."
+                />
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {field.value.map((tagId) => {
+                    const tag = tagOptions.find((t) => t.value === tagId);
+                    return tag ? (
+                      <div
+                        key={tagId}
+                        className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full flex items-center gap-1"
+                      >
+                        <span>{tag.label}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeTag(tagId)}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+                <FormMessage />
+              </div>
             </FormItem>
           )}
         />

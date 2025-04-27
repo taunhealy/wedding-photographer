@@ -1,4 +1,4 @@
-import PackageList from "../components/packages/PackageList";
+import PackageList from "../dashboard/admin/packages/components/PackageList";
 import { prisma } from "@/lib/prisma";
 
 interface PackagesPageProps {
@@ -23,6 +23,7 @@ export default async function PackagesPage({
       schedules: true,
       category: true,
       tags: true,
+      paypalOrders: true,
     },
   });
 

@@ -30,9 +30,33 @@ export async function POST(request: Request) {
 
     const data = await request.json();
 
+    if (
+      !data.name ||
+      typeof data.name !== "string" ||
+      data.name.trim() === ""
+    ) {
+      return NextResponse.json(
+        { error: "Tag name is required" },
+        { status: 400 }
+      );
+    }
+
+    // Check if tag already exists
+    const existingTag = await prisma.tag.findUnique({
+      where: { name: data.name.trim() },
+    });
+
+    if (existingTag) {
+      return NextResponse.json(
+        { error: "Tag already exists", tag: existingTag },
+        { status: 409 }
+      );
+    }
+
+    // Create new tag
     const tag = await prisma.tag.create({
       data: {
-        name: data.name,
+        name: data.name.trim(),
       },
     });
 

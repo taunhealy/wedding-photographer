@@ -27,23 +27,25 @@ export default async function DashboardLayout({
 
   // Centralized tab configuration based on your file structure
   const TAB_CONFIG: TabConfig[] = [
-    // Admin bookings
+    // Admin sections
     {
       id: "admin-bookings",
       label: "Bookings Management",
       href: "/dashboard/admin/bookings",
       roles: ["admin"],
     },
-
-    // Tours
     {
-      id: "tours",
-      label: "Tours Managements",
-      href: "/dashboard/admin/tours",
+      id: "packages",
+      label: "Packages Management",
+      href: "/dashboard/admin/packages",
       roles: ["admin"],
     },
-
-    // Settings - likely admin only
+    {
+      id: "portfolio",
+      label: "Portfolio Management",
+      href: "/dashboard/admin/portfolio",
+      roles: ["admin"],
+    },
     {
       id: "settings",
       label: "System Settings",
@@ -51,54 +53,24 @@ export default async function DashboardLayout({
       roles: ["admin"],
     },
 
-    // Reports - for admin and guides
-    {
-      id: "reports",
-      label: "Analytics & Reports",
-      href: "/dashboard/reports",
-      roles: ["admin", "guide"],
-    },
-
-    // Pricing section
-    {
-      id: "pricing-promotions",
-      label: "Promotions",
-      href: "/dashboard/pricing/promotions",
-      roles: ["admin"],
-    },
-    {
-      id: "pricing-seasonal",
-      label: "Seasonal Pricing",
-      href: "/dashboard/pricing/seasonal",
-      roles: ["admin"],
-    },
-
-    // Scheduling section
-    {
-      id: "scheduling-conflicts",
-      label: "Schedule Conflicts",
-      href: "/dashboard/scheduling/conflicts",
-      roles: ["admin", "guide"],
-    },
-    {
-      id: "scheduling-staff",
-      label: "Staff Scheduling",
-      href: "/dashboard/scheduling/staff",
-      roles: ["admin"],
-    },
-
-    // Customer tabs
+    // Client sections
     {
       id: "my-bookings",
-      label: "My Bookings",
-      href: "/dashboard/customer/bookings",
+      label: "My Sessions",
+      href: "/dashboard/client/bookings",
+      roles: ["customer"],
+    },
+    {
+      id: "my-gallery",
+      label: "My Gallery",
+      href: "/dashboard/client/gallery",
       roles: ["customer"],
     },
     {
       id: "profile",
       label: "Profile",
       href: "/dashboard/profile",
-      roles: ["admin", "guide", "customer"],
+      roles: ["admin", "customer"],
     },
   ];
 
