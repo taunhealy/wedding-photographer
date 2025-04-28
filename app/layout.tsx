@@ -3,6 +3,7 @@ import { Providers } from "./providers";
 import { Inter } from "next/font/google";
 import Navbar from "@/app/components/navbar";
 
+// Configure the Inter font
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
@@ -20,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable}`}>
+    <html lang="en" className={inter.variable}>
       <body>
         <Providers>
           <Navbar />
